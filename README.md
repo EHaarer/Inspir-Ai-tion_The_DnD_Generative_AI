@@ -10,5 +10,9 @@ Future implementations we hope to add:
  - Questline Generation
  - City Map Generation
  - PC generation
- - improving NPC generation
- - exporting generated content
+ - Improving NPC generation by:
+     - Adding melee hit, spell casting modifier, and spell save
+     - adding proficiencies, languages
+     - Adding Magic Items' Actions to action section
+ - Exporting generated content into PDF format
+ - Greater World Map Generation
