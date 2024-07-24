@@ -1,4 +1,4 @@
-Hello and Welcome to the project Page!
+Hello and Welcome to the InspirAItion Project Page!
 
 InspirAItion is a streamlit website that seeks to use generative AI to help ttrpg enthusiasts to easily make NPC stats, location information, and quests
 
@@ -16,3 +16,5 @@ Future implementations we hope to add:
      - Adding Magic Items' Actions to action section
  - Exporting generated content into PDF format
  - Greater World Map Generation
+
+It should be noted that this project respects the rights of writers, artists and creatives. This project does not condone the unsolicited use of creatives' works and projects to train or improve generative ai. We want this tool to enhance creator's ideas and important work, not to replace them.
