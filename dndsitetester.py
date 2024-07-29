@@ -5,7 +5,6 @@ import openai
 import streamlit.components.v1 as components
 
 # Set your OpenAI API key
-openai.api_key = "INSERT API KEY HERE"
 
 # Base URL for the D&D 5e API
 api_base_url = "https://www.dnd5eapi.co/api"
@@ -289,7 +288,7 @@ def calculate_hit_points(character_class, level, constitution_score):
 
 # Function to generate a town description using OpenAI API
 def generate_town_description(town_name, town_type, town_population, unique_characters):
-    system_message = "You are to generate a description of 3-5 sentences of a fantasy town in Dnd 5e, and you should talk about the vibe of the town, the weather, the surrounding environment and any locations of note. In each request from here on, You will receive the town name, population size and number of unique characters. Generate the relevant information with each prompt."
+    system_message = "You are to generate a description of 3-5 sentences of a fantasy town in Dnd 5e, and you should talk about the vibe of the town, the weather, the surrounding environment and any locations of note. In each request from here on, You will receive the town name, population size and number of unique characters. Generate the relevant information with each prompt, but do not list any characters by specific name."
     prompt = f"Town Name: {town_name}, Town Type: {town_type}, Town Population: {town_population}, Unique Characters: {unique_characters}"
     
     response = openai.chat.completions.create(
@@ -303,17 +302,43 @@ def generate_town_description(town_name, town_type, town_population, unique_char
     return response.choices[0].message.content
     #return response['choices'][0]['message']['content']
 
+def generate_quest(town_name, character_data):
+    system_message = "You will receive a input prompt in the format of Town Name:T Characters:[N|A|C], [N|A|C], [N|A|C]... where T is the name of the core quest location, and then for all unique characters in the location N is the name of a character, A is that character's moral alignment, and C is the character's class. There will be many 'characters' sent in this format, and you must generate a quest given all of these characters. Each quest should be detailed and in-depth. There will be a designated quest giver that will tell the Heroes of a problem, situation or event that is happening. You will list out the stages of the quest, listing what the quest giver wants the heroes to do, whether that be to collect something, clear out a location of monsters, convince someone of something, solve a mystery, catch a person or bad guy, or track down a faction or secret society. These quests should be relevant to the Class and alignment of the character that is the quest-giver, and should be given out in or around the core location. For instance a wizard or sorcerer may have a quest that is more magic-aligned, a druid is nature-aligned, a rouge is sneaky-aligned, etc. The quest should have multiple stages of discovery, combat, skill checks or others that are needed to advance. In most quests, there should include some sort of revelation or twist that allows the heroes to resolve the quest in more than one way. The quest should only include named characters that are listed in the input, list out the stages of the quest in 1, 2, 3... format and then list all possible resolutions based on the player character's decisions, including rewards in either magic items and/or gold pieces, defining what the magic items do."
+    prompt = f"Town Name:{town_name}: Characters: {character_data}"
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=1
+    )
+    return response.choices[0].message.content
+
 def main():
     st.title("D&D Plotline Generator - OpenAi")
 
     custom_settlement_name = st.text_input("Custom Settlement Name")
     settlement_size = st.selectbox("Select Settlement Size", list(settlement_sizes.keys()))
 
+    settlement_name_copy = ""
+
     loading_placeholder = st.empty()
+
+    # Initialize session state if it doesn't exist
+    if 'town_tile' not in st.session_state:
+        st.session_state.town_tile = ""
+    if 'character_tiles' not in st.session_state:
+        st.session_state.character_tiles = ""
+    if 'quests' not in st.session_state:
+        st.session_state.quests = []
+
     if st.button(f"Generate {settlement_size}"):
         with loading_placeholder:
             st.spinner("Generating...")
             settlement_name = generate_settlement_name(custom_settlement_name)
+            settlement_name_copy = settlement_name
             population = generate_population(settlement_sizes[settlement_size])
             character_names, level_range = generate_characters(settlement_size)
             unique_characters = len(character_names)
@@ -322,7 +347,7 @@ def main():
 
         loading_placeholder.empty()
         
-        town_tile = f"""
+        st.session_state.town_tile = f"""
         <div class="town-tile" style="margin: 0 auto; text-align: left;">
             <div class="town-info">
                 <h2 style="text-align: center;">{settlement_name} - {settlement_size}</h2>
@@ -334,9 +359,12 @@ def main():
         """
 
         character_tiles = ""
+        character_data = ""
         for name in character_names:
             character_info = assign_race_class_level(name, level_range)
             ability_scores = character_info['ability_scores']
+            character_data += f"[{character_info['name']}|{character_info['alignment']}|{character_info['class']}], "
+
             tile = f"""
             <div class="character-tile">
                 <div contenteditable="true"  style="width:85%; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
@@ -380,7 +408,11 @@ def main():
 
             character_tiles += tile
 
-        # Define custom CSS and JavaScript for gallery style tiles with buttons for scrolling
+        st.session_state.character_tiles = character_tiles
+        st.session_state.character_data = character_data
+
+    # Display the town and character tiles
+    if st.session_state.town_tile:
         custom_css = """
         <style>
         .gradient {
@@ -502,21 +534,35 @@ def main():
         </script>
         """
 
-        # Combine custom CSS, JavaScript, buttons, and character tiles into an HTML component
         character_tiles_html = f"""
         {custom_css}
-        {town_tile}
+        {st.session_state.town_tile}
         <div class="character-tiles-container-wrapper">
             <button class="scroll-button" onclick="scrollTilesContainer(-1)">&lt;</button>
             <div class="character-tiles-container">
-                {character_tiles}
+                {st.session_state.character_tiles}
             </div>
             <button class="scroll-button" onclick="scrollTilesContainer(1)">&gt;</button>
         </div>
         """
 
-        # Render the HTML component, change height to ensure all elements appear properly!
-        components.html(character_tiles_html, height=1000, scrolling=False)
+        components.html(character_tiles_html, height=900, scrolling=False)
+
+    # Add the button to generate a new quest
+    st.subheader("Quests")
+    if st.button("Generate new quest"):
+        quest = generate_quest(settlement_name_copy, st.session_state.character_data)
+        st.session_state.quests.append(quest)
+
+    # Display the quests
+    for quest in st.session_state.quests:
+        quest_tile = f"""
+        <div class="quest-tile" style="margin: 0 auto; text-align: left; width: 85%; background-color: #f0f0f0; border: 1px solid #ddd; border-radius: 7.5px; padding: 20px; margin-bottom: 20px;">
+            <h2 style="text-align: center;">New Quest</h2>
+            <p>{quest}</p>
+        </div>
+        """
+        components.html(quest_tile, height=1500, scrolling=False)
 
 if __name__ == "__main__":
     main()
