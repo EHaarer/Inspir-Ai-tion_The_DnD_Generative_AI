@@ -3,6 +3,7 @@ import requests
 import random
 import openai
 import streamlit.components.v1 as components
+import re
 
 # Set your OpenAI API key
 
@@ -303,8 +304,10 @@ def generate_town_description(town_name, town_type, town_population, unique_char
     #return response['choices'][0]['message']['content']
 
 def generate_quest(town_name, character_data):
-    system_message = "You will receive a input prompt in the format of Town Name:T Characters:[N|A|C], [N|A|C], [N|A|C]... where T is the name of the core quest location, and then for all unique characters in the location N is the name of a character, A is that character's moral alignment, and C is the character's class. There will be many 'characters' sent in this format, and you must generate a quest given all of these characters. Each quest should be detailed and in-depth. There will be a designated quest giver that will tell the Heroes of a problem, situation or event that is happening. You will list out the stages of the quest, listing what the quest giver wants the heroes to do, whether that be to collect something, clear out a location of monsters, convince someone of something, solve a mystery, catch a person or bad guy, or track down a faction or secret society. These quests should be relevant to the Class and alignment of the character that is the quest-giver, and should be given out in or around the core location. For instance a wizard or sorcerer may have a quest that is more magic-aligned, a druid is nature-aligned, a rouge is sneaky-aligned, etc. The quest should have multiple stages of discovery, combat, skill checks or others that are needed to advance. In most quests, there should include some sort of revelation or twist that allows the heroes to resolve the quest in more than one way. The quest should only include named characters that are listed in the input, list out the stages of the quest in 1, 2, 3... format and then list all possible resolutions based on the player character's decisions, including rewards in either magic items and/or gold pieces, defining what the magic items do."
+    system_message = "You will receive a input prompt in the format of \"Town Name:T Characters:[N|A|C], [N|A|C], [N|A|C]...\" where T is the name of the settlement in which the quest MUST mainly be located, and then for all unique characters in the location N is the name of a character, A is that character's moral alignment, and C is the character's class. The output should be Blocked out in the following sections: Quest Title, Quest Giver, Quest Background, Stages of the Quest, Possible Resolutions, and Conclusion. There will be many 'characters' sent in this format, and you must generate a quest given all of these characters. Each quest should be detailed and in-depth. There will be a designated quest giver that will tell the Heroes of a problem, situation or event that is happening. You will list out the stages of the quest, listing what the quest giver wants the heroes to do, whether that be to collect something, clear out a location of monsters, convince someone of something, solve a mystery, catch a person or bad guy, track down a faction or secret society, steal an item or artifact, or unravel a political plot. These quests should be relevant to the Class and alignment of the character that is the quest-giver, and should be given out in or around the core location. For instance a wizard or sorcerer may have a quest that is more magic-aligned, a druid is nature-aligned, a rouge is sneaky-aligned, etc. The quest should have multiple stages of discovery, combat, skill checks or others that are needed to advance. In most quests, there should include some sort of revelation or twist that allows the heroes to resolve the quest in more than one way. The quest should only include named characters that are listed in the input, list out the stages of the quest in 1, 2, 3... format and then list all possible resolutions based on the player character's decisions, including rewards in either magic items and/or gold pieces, defining what the magic items do. The Possible Resolutions section should be similarly enumerated."
     prompt = f"Town Name:{town_name}: Characters: {character_data}"
+
+    print(prompt)
 
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
@@ -316,13 +319,87 @@ def generate_quest(town_name, character_data):
     )
     return response.choices[0].message.content
 
+def insert_newlines_before_numbers(text):
+    # Define the regex pattern to match numbers followed by a dot (e.g., "1.", "2.", ...)
+    pattern = r'(\d+\.)'
+    
+    def replace_match(match):
+        if match.group(1) == '1.':
+            return match.group(1)
+        else:
+            return f'<br>{match.group(1)}'
+    
+    # Replace the pattern using the replace_match function
+    modified_text = re.sub(pattern, replace_match, text)
+    
+    return modified_text
+
+def insert_newlines_before_hyphens(text):
+    # Replace each hyphen with a new-line character followed by the hyphen
+    modified_text = text.replace("-", "<br>-")
+    
+    return modified_text
+
+
+def replace_bold_italic(text: str) -> str:
+    # Define the regex pattern to match text between "**"
+    pattern = r'\*\*(.*?)\*\*'
+    
+    def replace_match(match):
+        inner_text = match.group(1)
+        if len(inner_text) < 50:
+            return f'<span style="font-weight:bold;font-style:italic;">{inner_text}</span>'
+        else:
+            return inner_text
+    
+    # Replace matching patterns using the replace_match function
+    modified_text = re.sub(pattern, replace_match, text)
+    
+    # Remove any remaining "**"
+    modified_text = modified_text.replace('**', '')
+    
+    return modified_text
+
+
+def extract_quest_details(quest_text):
+    # Define the substrings to search for
+    substrings = [
+        "Quest Title",
+        "Quest Giver",
+        "Quest Background",
+        "Stages of the Quest",
+        "Possible Resolutions",
+        "Conclusion"
+    ]
+    
+    # Initialize an empty list to store the results
+    results = [""] * len(substrings)  # Initialize results with empty strings for each substring
+
+    # Extract the text segments between the substrings
+    for i in range(len(substrings) - 1):
+        start = quest_text.find(substrings[i]) + len(substrings[i])
+        end = quest_text.find(substrings[i + 1])
+        if start < len(substrings[i]) or end == -1:  # Check if start is valid and end is found
+            continue  # Skip to next iteration if not found
+        results[i] = quest_text[start:end].strip()
+
+    # Extract the text after the last substring
+    start = quest_text.find(substrings[-1]) + len(substrings[-1])
+    if start >= len(substrings[-1]):  # Check if start is valid
+        results[-1] = quest_text[start:].strip()
+    
+    return results
+
+
+    
+
 def main():
-    st.title("D&D Plotline Generator - OpenAi")
+    st.title("Inspiration AI - D&D Edition")
 
     custom_settlement_name = st.text_input("Custom Settlement Name")
     settlement_size = st.selectbox("Select Settlement Size", list(settlement_sizes.keys()))
 
-    settlement_name_copy = ""
+    settlement_name_copy = custom_settlement_name
 
     loading_placeholder = st.empty()
 
@@ -551,18 +628,103 @@ def main():
     # Add the button to generate a new quest
     st.subheader("Quests")
     if st.button("Generate new quest"):
-        quest = generate_quest(settlement_name_copy, st.session_state.character_data)
-        st.session_state.quests.append(quest)
+        quest = replace_bold_italic(generate_quest(settlement_name_copy, st.session_state.character_data))
+        st.session_state.quests.append({
+            "quest_text": quest,
+            "quest_parts": extract_quest_details(quest)
+        })
 
     # Display the quests
     for quest in st.session_state.quests:
+        quest_parts = quest["quest_parts"]
         quest_tile = f"""
         <div class="quest-tile" style="margin: 0 auto; text-align: left; width: 85%; background-color: #f0f0f0; border: 1px solid #ddd; border-radius: 7.5px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="text-align: center;">New Quest</h2>
-            <p>{quest}</p>
+            <div contenteditable="true"  style="width:100%; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
+            <h2 class="name" style = "font-size:225%; font-family:Georgia, serif; font-variant:small-caps; font-weight:bold; color:#A73335;">Quest: {quest_parts[0].strip(' :#')}</h2>
+            <div style = "font-style:italic;">Quest Giver: {quest_parts[1].strip(' :#')}</div>
+            <br>
+            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Quest Background</div>
+            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
+            <p>{quest_parts[2].strip(' :#')}</p>
+            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Quest Stages</div>
+            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
+            <p>{insert_newlines_before_numbers(quest_parts[3]).strip(' :#')}</p>
+            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Possible Resolutions</div>
+            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
+            <p>{insert_newlines_before_numbers(quest_parts[4]).strip(' :#')}</p>
+            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Conclusion</div>
+            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
+            <p>{quest_parts[5].strip(' :#')}</p>
+            </div>
         </div>
         """
-        components.html(quest_tile, height=1500, scrolling=False)
+
+        # <span style = "font-weight:bold;font-style:italic;"></span>
+        components.html(quest_tile, height=1200, scrolling=False)
+        
+        if st.session_state.quests:
+            custom_css = """
+            .gradient {
+                background: linear-gradient(10deg, #A73335, white);
+                height:5px;
+                margin:7px 0px;
+            }
+            .name {
+                font-size:225%;
+                font-family:Georgia, serif;
+                font-variant:small-caps;
+                font-weight:bold;
+                color:#A73335;
+            }
+            .description {
+                font-style:italic;    
+            }
+            .bold {
+                font-weight:bold;
+            }
+            .red {
+                color:#A73335;
+            }
+            table {
+                width:100%;
+                border:0px;
+                border-collapse:collapse;
+                color:#A73335;
+            }
+            th, td {
+                width:50px;
+                text-align:center;
+            }
+            .actions {
+                font-size:175%;
+                font-variant:small-caps;
+                margin:17px 0px 0px 0px;
+            }
+            .hr {
+                background: #A73335;
+                height:2px;
+            }
+            .attack {
+                margin:5px 0px;
+            }
+            .attackname {
+                font-weight:bold;
+                font-style:italic;
+            }       
+            .quest-tile {
+                background-color: #f0f0f0;
+                border: 1px solid #ddd;
+                border-radius: 7.5px;  /* Increased bevel on corners by 50% */
+                margin-right: 10px;
+                padding: 20px;
+                min-width: 95%;
+                max-width: 95%;
+                flex: 0 0 auto;
+                scroll-snap-align: start;
+                white-space: normal;
+            }
+            """
+
 
 if __name__ == "__main__":
     main()
