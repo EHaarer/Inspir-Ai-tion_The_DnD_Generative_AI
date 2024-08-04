@@ -12,7 +12,7 @@ api_base_url = "https://www.dnd5eapi.co/api"
 
 # Define ranges for settlement sizes
 settlement_sizes = {
-    "Thorp": (3, 6, (8, 20), (1, 3)),
+    "Thorp": (5, 7, (9, 20), (1, 3)),
     "Village": (5, 8, (80, 200), (1, 5)),
     "Town": (7, 12, (400, 2000), (1, 8)),
     "City": (10, 15, (5000, 25000), (1, 15)),
@@ -301,10 +301,9 @@ def generate_town_description(town_name, town_type, town_population, unique_char
         temperature=1
     )
     return response.choices[0].message.content
-    #return response['choices'][0]['message']['content']
 
 def generate_quest(town_name, character_data):
-    system_message = "You will receive a input prompt in the format of \"Town Name:T Characters:[N|A|C], [N|A|C], [N|A|C]...\" where T is the name of the settlement in which the quest MUST mainly be located, and then for all unique characters in the location N is the name of a character, A is that character's moral alignment, and C is the character's class. The output should be Blocked out in the following sections: Quest Title, Quest Giver, Quest Background, Stages of the Quest, Possible Resolutions, and Conclusion. There will be many 'characters' sent in this format, and you must generate a quest given all of these characters. Each quest should be detailed and in-depth. There will be a designated quest giver that will tell the Heroes of a problem, situation or event that is happening. You will list out the stages of the quest, listing what the quest giver wants the heroes to do, whether that be to collect something, clear out a location of monsters, convince someone of something, solve a mystery, catch a person or bad guy, track down a faction or secret society, steal an item or artifact, or unravel a political plot. These quests should be relevant to the Class and alignment of the character that is the quest-giver, and should be given out in or around the core location. For instance a wizard or sorcerer may have a quest that is more magic-aligned, a druid is nature-aligned, a rouge is sneaky-aligned, etc. The quest should have multiple stages of discovery, combat, skill checks or others that are needed to advance. In most quests, there should include some sort of revelation or twist that allows the heroes to resolve the quest in more than one way. The quest should only include named characters that are listed in the input, list out the stages of the quest in 1, 2, 3... format and then list all possible resolutions based on the player character's decisions, including rewards in either magic items and/or gold pieces, defining what the magic items do. The Possible Resolutions section should be similarly enumerated."
+    system_message = "You will receive a input prompt in the format of \"Town Name:T Characters:[N|A|C], [N|A|C], [N|A|C]...\" where T is the name of the settlement in which the quest MUST mainly be located, and then for all unique characters in the location N is the name of a character, A is that character's moral alignment, and C is the character's class. The output MUST be Blocked out in the following sections: Quest Title, Quest Giver, Quest Background, Stages of the Quest, Possible Resolutions, and Conclusion. Do NOT use characters like # or - to separate sections. There will be many 'characters' sent in this format, and you must generate a quest given all of these characters. Each quest should be detailed and in-depth, and the name of the quest should be word play. There will be a designated quest giver that will tell the Heroes of a problem, situation or event that is happening. You will list out the stages of the quest, listing what the quest giver wants the heroes to do, whether that be to collect something, clear out a location of monsters, convince someone of something, solve a mystery, catch a person or monster, track down a faction or secret society, steal an item or artifact, solve a murder, plan and execute a heist or unravel a political plot. These quests should be relevant to the Class and alignment of the character that is the quest-giver, and should be given out in or around the core location. For instance a wizard or sorcerer may have a quest that is more magic-aligned, a druid is nature-aligned, a rouge is sneaky-aligned, etc. The quest should have multiple stages of discovery, combat, skill checks or others that are needed to advance. In most quests, there should include some sort of revelation or twist that allows the heroes to resolve the quest in more than one way. The quest should only include named characters that are listed in the input, list out the stages of the quest in 1, 2, 3... format and then list all possible resolutions based on the player character's decisions, including rewards in either magic items and/or gold pieces, defining what the magic items do. The Possible Resolutions section should be similarly enumerated."
     prompt = f"Town Name:{town_name}: Characters: {character_data}"
 
     print(prompt)
@@ -340,7 +339,6 @@ def insert_newlines_before_hyphens(text):
     
     return modified_text
 
-
 def replace_bold_italic(text: str) -> str:
     # Define the regex pattern to match text between "**"
     pattern = r'\*\*(.*?)\*\*'
@@ -359,7 +357,6 @@ def replace_bold_italic(text: str) -> str:
     modified_text = modified_text.replace('**', '')
     
     return modified_text
-
 
 def extract_quest_details(quest_text):
     # Define the substrings to search for
@@ -390,9 +387,6 @@ def extract_quest_details(quest_text):
     
     return results
 
-
-    
-
 def main():
     st.title("Inspiration AI - D&D Edition")
 
@@ -410,6 +404,8 @@ def main():
         st.session_state.character_tiles = ""
     if 'quests' not in st.session_state:
         st.session_state.quests = []
+    if 'tab_titles' not in st.session_state:
+        st.session_state.tab_titles = []
 
     if st.button(f"Generate {settlement_size}"):
         with loading_placeholder:
@@ -427,10 +423,12 @@ def main():
         st.session_state.town_tile = f"""
         <div class="town-tile" style="margin: 0 auto; text-align: left;">
             <div class="town-info">
-                <h2 style="text-align: center;">{settlement_name} - {settlement_size}</h2>
-                <p><strong>Population:</strong> {population}</p>
-                <p><strong>Number of Unique Characters:</strong> {unique_characters}</p>
-                <p><strong>Description:</strong> {town_description}</p>
+                <div contenteditable="true"  style="width:85%; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
+                    <div class = "name" style="text-align: left;">{settlement_name}</div>
+                    <div class = "description" style="text-align: left;">{settlement_size}, Population of {population}, containing {unique_characters} NPCs</div>
+                    <div class = "gradient"></div>
+                    <p><strong>Description:</strong> {town_description}</p>
+                </div>
             </div>
         </div>
         """
@@ -493,7 +491,7 @@ def main():
         custom_css = """
         <style>
         .gradient {
-            background: linear-gradient(10deg, #A73335, white);
+            background: linear-gradient(10deg, #A73335, #f0f0f0);
             height:5px;
             margin:7px 0px;
         }
@@ -623,108 +621,48 @@ def main():
         </div>
         """
 
-        components.html(character_tiles_html, height=900, scrolling=False)
+        components.html(character_tiles_html, height=750, scrolling=True)
 
     # Add the button to generate a new quest
     st.subheader("Quests")
     if st.button("Generate new quest"):
         quest = replace_bold_italic(generate_quest(settlement_name_copy, st.session_state.character_data))
+        quest_title = quest.split("Quest Title:")[1].split("Quest Giver:")[0].strip()
         st.session_state.quests.append({
             "quest_text": quest,
-            "quest_parts": extract_quest_details(quest)
+            "quest_parts": extract_quest_details(quest),
+            "title": quest_title
         })
+        st.session_state.tab_titles.append(quest_title)
 
-    # Display the quests
-    for quest in st.session_state.quests:
-        quest_parts = quest["quest_parts"]
-        quest_tile = f"""
-        <div class="quest-tile" style="margin: 0 auto; text-align: left; width: 85%; background-color: #f0f0f0; border: 1px solid #ddd; border-radius: 7.5px; padding: 20px; margin-bottom: 20px;">
-            <div contenteditable="true"  style="width:100%; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
-            <h2 class="name" style = "font-size:225%; font-family:Georgia, serif; font-variant:small-caps; font-weight:bold; color:#A73335;">Quest: {quest_parts[0].strip(' :#')}</h2>
-            <div style = "font-style:italic;">Quest Giver: {quest_parts[1].strip(' :#')}</div>
-            <br>
-            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Quest Background</div>
-            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
-            <p>{quest_parts[2].strip(' :#')}</p>
-            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Quest Stages</div>
-            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
-            <p>{insert_newlines_before_numbers(quest_parts[3]).strip(' :#')}</p>
-            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Possible Resolutions</div>
-            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
-            <p>{insert_newlines_before_numbers(quest_parts[4]).strip(' :#')}</p>
-            <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Conclusion</div>
-            <div class="gradient" style="background: linear-gradient(10deg, #A73335, white); height:5px; margin:7px 0px;"></div>
-            <p>{quest_parts[5].strip(' :#')}</p>
-            </div>
-        </div>
-        """
-
-        # <span style = "font-weight:bold;font-style:italic;"></span>
-        components.html(quest_tile, height=1200, scrolling=False)
-        
-        if st.session_state.quests:
-            custom_css = """
-            .gradient {
-                background: linear-gradient(10deg, #A73335, white);
-                height:5px;
-                margin:7px 0px;
-            }
-            .name {
-                font-size:225%;
-                font-family:Georgia, serif;
-                font-variant:small-caps;
-                font-weight:bold;
-                color:#A73335;
-            }
-            .description {
-                font-style:italic;    
-            }
-            .bold {
-                font-weight:bold;
-            }
-            .red {
-                color:#A73335;
-            }
-            table {
-                width:100%;
-                border:0px;
-                border-collapse:collapse;
-                color:#A73335;
-            }
-            th, td {
-                width:50px;
-                text-align:center;
-            }
-            .actions {
-                font-size:175%;
-                font-variant:small-caps;
-                margin:17px 0px 0px 0px;
-            }
-            .hr {
-                background: #A73335;
-                height:2px;
-            }
-            .attack {
-                margin:5px 0px;
-            }
-            .attackname {
-                font-weight:bold;
-                font-style:italic;
-            }       
-            .quest-tile {
-                background-color: #f0f0f0;
-                border: 1px solid #ddd;
-                border-radius: 7.5px;  /* Increased bevel on corners by 50% */
-                margin-right: 10px;
-                padding: 20px;
-                min-width: 95%;
-                max-width: 95%;
-                flex: 0 0 auto;
-                scroll-snap-align: start;
-                white-space: normal;
-            }
-            """
-
+    # Display the quests in tabs
+    if st.session_state.quests:
+        selected_tab = st.selectbox("Select a quest to view", st.session_state.tab_titles)
+        for quest in st.session_state.quests:
+            if quest["title"] == selected_tab:
+                quest_parts = quest["quest_parts"]
+                quest_tile = f"""
+                <div class="quest-tile" style="margin: 0 auto; text-align: left; width: 85%; background-color: #ffffff; border: 1px solid #ddd; border-radius: 7.5px; padding: 20px; margin-bottom: 20px;">
+                    <div contenteditable="true"  style="width:100%; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
+                    <h2 class="name" style = "font-size:225%; font-family:Georgia, serif; font-variant:small-caps; font-weight:bold; color:#A73335;">Quest: {quest_parts[0].strip(' :#-"')}</h2>
+                    <div style = "font-style:italic;">Quest Giver: {quest_parts[1].strip(' :#-')}</div>
+                    <br>
+                    <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Quest Background</div>
+                    <div class="gradient" style="background: linear-gradient(10deg, #A73335, #f0f0f0); height:5px; margin:7px 0px;"></div>
+                    <p>{quest_parts[2].strip(' :#-')}</p>
+                    <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Quest Stages</div>
+                    <div class="gradient" style="background: linear-gradient(10deg, #A73335, #f0f0f0); height:5px; margin:7px 0px;"></div>
+                    <p>{insert_newlines_before_numbers(quest_parts[3]).strip(' :#-')}</p>
+                    <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Possible Resolutions</div>
+                    <div class="gradient" style="background: linear-gradient(10deg, #A73335, #f0f0f0); height:5px; margin:7px 0px;"></div>
+                    <p>{insert_newlines_before_numbers(quest_parts[4]).strip(' :#-')}</p>
+                    <div style="font-size:175%;font-variant:small-caps;margin:17px 0px 0px 0px; color:#A73335;">Conclusion</div>
+                    <div class="gradient" style="background: linear-gradient(10deg, #A73335, #f0f0f0); height:5px; margin:7px 0px;"></div>
+                    <p>{quest_parts[5].strip(' :#-')}</p>
+                    </div>
+                </div>
+                """
+                components.html(quest_tile, height=900, scrolling=True)
 
 if __name__ == "__main__":
     main()
