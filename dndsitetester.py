@@ -12,11 +12,11 @@ api_base_url = "https://www.dnd5eapi.co/api"
 
 # Define ranges for settlement sizes
 settlement_sizes = {
-    "Thorp": (5, 7, (9, 20), (1, 3)),
-    "Village": (5, 8, (80, 200), (1, 5)),
-    "Town": (7, 12, (400, 2000), (1, 8)),
-    "City": (10, 15, (5000, 25000), (1, 15)),
-    "Metropolis": (12, 20, (30000, 150000), (1, 20))
+    "Thorp": (5, 7, (12, 20), (1, 3)),
+    "Village": (8, 14, (80, 200), (1, 5)),
+    "Town": (10, 16, (400, 2000), (1, 8)),
+    "City": (14, 18, (5000, 25000), (1, 15)),
+    "Metropolis": (14, 20, (30000, 150000), (1, 20))
 }
 
 # Function to fetch races from D&D API
@@ -406,8 +406,15 @@ def main():
         st.session_state.quests = []
     if 'tab_titles' not in st.session_state:
         st.session_state.tab_titles = []
+    if 'selected_tab' not in st.session_state:
+        st.session_state.selected_tab = None
 
     if st.button(f"Generate {settlement_size}"):
+        # Remove quests before generating a new settlement
+        st.session_state.quests = []
+        st.session_state.tab_titles = []
+        st.session_state.selected_tab = None
+        
         with loading_placeholder:
             st.spinner("Generating...")
             settlement_name = generate_settlement_name(custom_settlement_name)
@@ -623,21 +630,31 @@ def main():
 
         components.html(character_tiles_html, height=750, scrolling=True)
 
-    # Add the button to generate a new quest
-    st.subheader("Quests")
-    if st.button("Generate new quest"):
-        quest = replace_bold_italic(generate_quest(settlement_name_copy, st.session_state.character_data))
-        quest_title = quest.split("Quest Title:")[1].split("Quest Giver:")[0].strip()
-        st.session_state.quests.append({
-            "quest_text": quest,
-            "quest_parts": extract_quest_details(quest),
-            "title": quest_title
-        })
-        st.session_state.tab_titles.append(quest_title)
+        # Display the option to generate quests after a settlement has been generated
+        st.subheader("Quests")
+        if st.button("Generate new quest"):
+            quest = replace_bold_italic(generate_quest(settlement_name_copy, st.session_state.character_data))
+            quest_title = quest.split("Quest Title:")[1].split("Quest Giver:")[0].strip()
+            st.session_state.quests.append({
+                "quest_text": quest,
+                "quest_parts": extract_quest_details(quest),
+                "title": quest_title
+            })
+            st.session_state.tab_titles.append(quest_title)
+            st.session_state.selected_tab = quest_title  # Automatically select the new quest
 
     # Display the quests in tabs
     if st.session_state.quests:
-        selected_tab = st.selectbox("Select a quest to view", st.session_state.tab_titles)
+        selected_tab = st.selectbox("Select a quest to view", st.session_state.tab_titles, index=st.session_state.tab_titles.index(st.session_state.selected_tab) if st.session_state.selected_tab else 0)
+        if st.button("Delete current quest"):
+            if st.session_state.selected_tab:
+                index_to_delete = st.session_state.tab_titles.index(st.session_state.selected_tab)
+                del st.session_state.quests[index_to_delete]
+                del st.session_state.tab_titles[index_to_delete]
+                if st.session_state.tab_titles:
+                    st.session_state.selected_tab = st.session_state.tab_titles[-1]  # Set to the most recent quest
+                else:
+                    st.session_state.selected_tab = None
         for quest in st.session_state.quests:
             if quest["title"] == selected_tab:
                 quest_parts = quest["quest_parts"]
@@ -662,7 +679,7 @@ def main():
                     </div>
                 </div>
                 """
-                components.html(quest_tile, height=900, scrolling=True)
+                components.html(quest_tile, height=1100, scrolling=True)
 
 if __name__ == "__main__":
     main()
