@@ -1,14 +1,22 @@
 version: '3.8'
 services:
-  app:
-    image: openai-demo-app
+  frontend:
+    image: frontend
     build:
-      context: ./
-      target: dev
+      context: ./frontend/
       dockerfile: Dockerfile
     volumes:
-        - .:/app
-        - /app/node_modules
-        - /app/.next
+      - ./frontend:/app
     ports:
       - "3000:3000"
+    environment:
+      - WATCHPACK_POLLING=true
+  backend:
+    image: backend
+    build:
+      context: ./iat_core/
+      dockerfile: Dockerfile
+    volumes:
+      - ./iat_core:/app
+    ports:
+      - "8000:8000" 

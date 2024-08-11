@@ -1,5 +1,5 @@
 {
-  "name": "iat_fe",
+  "name": "frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,8 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@ant-design/icons": "^5.4.0",
-    "antd": "^5.19.3",
+    "@nextui-org/react": "^2.4.6",
+    "antd": "^5.20.0",
+    "dotenv": "^16.4.5",
+    "framer-motion": "^11.3.24",
+    "frontend": "file:",
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18"
