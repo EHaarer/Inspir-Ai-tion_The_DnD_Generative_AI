@@ -23,6 +23,13 @@ const config: Config = {
     {
       addCommonColors: true,
       themes: {
+        light: {
+          colors: {
+            background: "#F7FAFC",
+            foreground: "#1A202C",
+            primary: "#FF0000",
+          },
+        },
         dark: {
           colors: {
             background: "#1A202C",

@@ -12,7 +12,6 @@ import {
   useDisclosure,
   ModalContent
 } from "@nextui-org/react";
-import { iatConfig } from "../config";
 export default function RequestExample({modalOpen, onModalChange}: {modalOpen: boolean, onModalChange: () => void}) {
 
   const [loading, setLoading] = useState(false);
@@ -30,7 +29,7 @@ export default function RequestExample({modalOpen, onModalChange}: {modalOpen: b
   const sendRequestSlow = async () => {
     setLoading(true);
     setResponse("");
-    const res = await fetch(iatConfig.backendUrl + "/api/delay");
+    const res = await fetch(process.env.API_URL + "/api/delay");
     if (!res.ok) {
       setResponse("Error: " + res.status);
       setLoading(false);
@@ -46,7 +45,7 @@ export default function RequestExample({modalOpen, onModalChange}: {modalOpen: b
   const sendRequestFast = async () => {
     setLoading(true);
     setResponse("");
-    const res = await fetch(iatConfig.backendUrl + "/api/health");
+    const res = await fetch(process.env.API_URL + "/api/health");
     if (!res.ok) {
       setResponse("Error: " + res.status);
       setLoading(false);

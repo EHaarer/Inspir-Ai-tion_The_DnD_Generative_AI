@@ -5,7 +5,7 @@ FROM python:3.11-slim
 RUN pip install poetry
 
 # Set the working directory inside the container
-WORKDIR /app
+WORKDIR /iat_core
 
 # Copy the poetry files to the working directory
 COPY poetry.lock pyproject.toml ./
@@ -17,7 +17,7 @@ RUN poetry install
 COPY . .
 
 # Expose the port on which the application will run
-EXPOSE 8080
+EXPOSE 8000
 
 # Run the FastAPI application using uvicorn server
 CMD  ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -7,6 +7,7 @@ import RequestExample from "./components/requestExample";
 import { Tooltip, useDisclosure } from "@nextui-org/react";
 import { motion } from "framer-motion";
 
+
 export default function Home() {
   const {isOpen, onOpen, onOpenChange} = useDisclosure();
   
@@ -24,7 +25,7 @@ export default function Home() {
       </Tooltip>
       
       <h1 className="text-6xl font-bold">
-        Welcome to {" "}
+        DB_Name: {process.env.DB_NAME}{" "}
         <BrandText />
       </h1>
       <RequestExample modalOpen={isOpen} onModalChange={onOpenChange}/>
