@@ -4,8 +4,13 @@ import random
 import openai
 import streamlit.components.v1 as components
 import re
+import math
+import os
 
+# from dotenv import load_dotenv, dotenv_values
+# load_dotenv()
 # Set your OpenAI API key
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Base URL for the D&D 5e API
 api_base_url = "https://www.dnd5eapi.co/api"
@@ -38,6 +43,26 @@ def get_class():
     else:
         st.error("Failed to fetch classes.")
         return []
+    
+def assign_languages(race):
+    if race in ["Elf", "Half-Elf"]:
+        return "Elvish"
+    elif race == "Dragonborn":
+        return "Draconic"
+    elif race == "Half-Orc":
+        return "Orc"
+    elif race == "Dwarf":
+        return "Dwarvish"
+    elif race == "Gnome":
+        return "Gnomish"
+    elif race == "Halfling":
+        return "Halfling"
+    elif race == "Tiefling":
+        return "Infernal"
+    elif race == "Human":
+        return random.choice(["Elvish", "Draconic", "Orc", "Dwarvish", "Gnomish", "Halfling", "Infernal"])
+    else:
+        return "Common"
 
 # Function to fetch all magic items from D&D API
 @st.cache_resource  # Cache the response to avoid making multiple requests
@@ -100,6 +125,7 @@ def assign_race_class_level(character_name, level_range):
     character_class = random.choice(get_class())
     level = random.randint(*level_range)
     magic_items = get_magic_items_based_on_level(level)
+    magic_items_list = ', '.join([item['name'] for item in magic_items]) if magic_items else "None"
 
     # Fetch race details
     race_details = get_race_details(race['index'])
@@ -112,12 +138,14 @@ def assign_race_class_level(character_name, level_range):
     ability_scores = generate_ability_scores(character_class['name'])
     apply_racial_bonuses(race['name'], ability_scores)
 
+    languages = f"Common, {assign_languages(race['name'])}"
+
     return {
         "name": character_name,
         "race": race['name'],
         "class": character_class['name'],
         "level": level,
-        "magic_items": magic_items,
+        "magic_items": magic_items_list,
         "size": size,
         "speed": speed,
         "traits": traits,
@@ -125,7 +153,8 @@ def assign_race_class_level(character_name, level_range):
         "ability_scores": ability_scores,
         "passive_perception": calculate_passive_perception(ability_scores['Wisdom']),
         "armor_class": calculate_armor_class(character_class['name'], ability_scores['Dexterity']),
-        "hit_points": calculate_hit_points(character_class['name'], level, ability_scores['Constitution'])
+        "hit_points": calculate_hit_points(character_class['name'], level, ability_scores['Constitution']),
+        "languages": languages
     }
 
 # Function to fetch race details from D&D API
@@ -251,11 +280,15 @@ def apply_racial_bonuses(race, ability_scores):
     elif race == "Tiefling":
         ability_scores["Charisma"] += 2
 
+
 # Function to calculate the ability modifier
 def calculate_modifier(score):
     modifier = (score - 10) // 2
     sign = '+' if modifier > 0 else ''
     return f"{sign}{modifier}"
+
+def calculate_modifier_value(score):
+    return (score - 10) // 2
 
 # Function to calculate passive perception
 def calculate_passive_perception(wisdom_score):
@@ -302,9 +335,33 @@ def generate_town_description(town_name, town_type, town_population, unique_char
     )
     return response.choices[0].message.content
 
+def generate_town_history(town_name, description):
+    system_message = "You are to generate a history of a fantasy town in Dnd 5e, and in 3 sentences you should talk about how old the town is, what person/group founded it and why, and any fun and interesting facts about the town. In each request from here on, You will receive the town name, and a description of the settlement."
+    prompt = f"Town Name: {town_name}, Description: {description}"
+    
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=1
+    )
+    return response.choices[0].message.content
+
 def generate_quest(town_name, character_data):
     system_message = "You will receive a input prompt in the format of \"Town Name:T Characters:[N|A|C], [N|A|C], [N|A|C]...\" where T is the name of the settlement in which the quest MUST mainly be located, and then for all unique characters in the location N is the name of a character, A is that character's moral alignment, and C is the character's class. The output MUST be Blocked out in the following sections: Quest Title, Quest Giver, Quest Background, Stages of the Quest, Possible Resolutions, and Conclusion. Do NOT use characters like # or - to separate sections. There will be many 'characters' sent in this format, and you must generate a quest given all of these characters. Each quest should be detailed and in-depth, and the name of the quest should be word play. There will be a designated quest giver that will tell the Heroes of a problem, situation or event that is happening. You will list out the stages of the quest, listing what the quest giver wants the heroes to do, whether that be to collect something, clear out a location of monsters, convince someone of something, solve a mystery, catch a person or monster, track down a faction or secret society, steal an item or artifact, solve a murder, plan and execute a heist or unravel a political plot. These quests should be relevant to the Class and alignment of the character that is the quest-giver, and should be given out in or around the core location. For instance a wizard or sorcerer may have a quest that is more magic-aligned, a druid is nature-aligned, a rouge is sneaky-aligned, etc. The quest should have multiple stages of discovery, combat, skill checks or others that are needed to advance. In most quests, there should include some sort of revelation or twist that allows the heroes to resolve the quest in more than one way. The quest should only include named characters that are listed in the input, list out the stages of the quest in 1, 2, 3... format and then list all possible resolutions based on the player character's decisions, including rewards in either magic items and/or gold pieces, defining what the magic items do. The Possible Resolutions section should be similarly enumerated."
-    prompt = f"Town Name:{town_name}: Characters: {character_data}"
+    
+    random.shuffle(character_data)
+
+    all_characters = ""
+
+    for i in range(len(character_data)):
+        all_characters += character_data[i]
+        if i != len(character_data) - 1:
+            all_characters += ", "
+    
+    prompt = f"Town Name:{town_name}: Characters: {all_characters}"
 
     print(prompt)
 
@@ -317,6 +374,21 @@ def generate_quest(town_name, character_data):
         temperature=1
     )
     return response.choices[0].message.content
+
+def generate_town_image(town_name, town_type, description):
+    townPrompt = f"A fantasy town called {town_name}, which is a {town_type}. {description} Show the town from a bird's eye view with elements like buildings, roads, and natural surroundings. You CANNOT generate text or boxes in the image generation, ONLY the town itself image only without typography. It should not contain any text, labels, borders, measurements nor design elements of any kind.. Do NOT add any details to this prompt, this is for testing purposes only."
+    
+    response = openai.images.generate(
+        model = "dall-e-3",
+        prompt = townPrompt,
+        size = "1024x1792",
+        quality = "standard",
+        n = 1,
+    )
+    
+    image_url = response.data[0].url
+    return image_url
+
 
 def insert_newlines_before_numbers(text):
     # Define the regex pattern to match numbers followed by a dot (e.g., "1.", "2.", ...)
@@ -389,6 +461,10 @@ def extract_quest_details(quest_text):
 
 def main():
     st.title("Inspiration AI - D&D Edition")
+    st.markdown(":rainbow[**Welcome to the Alpha Build of Inspiration!**]")
+    st.markdown("This website is designed to help Dungeon Masters (DMs) and players generate content for their Dungeons & Dragons (D&D) campaigns. You can use this tool to generate random settlements, characters, quests, and more. To begin, generate a settlement and NPCs with the options below.")
+    st.markdown(":red[This tool is still in the Alpha phase so it is ***slow*** and may not always work as expected.] Please be patient and report any issues you encounter, we are regularly rolling out optimizations and new updates!")
+    st.markdown("This website was created by **Ethan Haarer** and **Razvan Beldeanu**, if you have any questions or feedback, feel free to reach out to us [here](https://www.instagram.com/ethanhaarer/), you can also find the code for this project [here](https://github.com/EHaarer/Inspir-Ai-tion_The_DnD_Generative_AI)")
 
     custom_settlement_name = st.text_input("Custom Settlement Name")
     settlement_size = st.selectbox("Select Settlement Size", list(settlement_sizes.keys()))
@@ -424,32 +500,65 @@ def main():
             unique_characters = len(character_names)
 
             town_description = generate_town_description(settlement_name, settlement_size, population, unique_characters)
+            town_history = generate_town_history(settlement_name, town_description)
+            town_image_url = generate_town_image(settlement_name, settlement_size, town_description)
 
         loading_placeholder.empty()
         
         st.session_state.town_tile = f"""
-        <div class="town-tile" style="margin: 0 auto; text-align: left;">
-            <div class="town-info">
-                <div contenteditable="true"  style="width:85%; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
-                    <div class = "name" style="text-align: left;">{settlement_name}</div>
-                    <div class = "description" style="text-align: left;">{settlement_size}, Population of {population}, containing {unique_characters} NPCs</div>
-                    <div class = "gradient"></div>
+        <div class="town-tile" style="margin: 0 auto; text-align: left; position: relative; display: flex; height: auto;">
+            <div class="town-info" style="display: flex; align-items: stretch; height: 100%;">
+                <img src="{town_image_url}" alt="Town Image" style="border-radius:7.5px; float: left; margin-right: 15px; width: 40%; max-height: 100%;">
+                <div contenteditable="true" style="width: 55%; font-family:Arial,Helvetica,sans-serif;font-size:11px; overflow: auto;">
+                    <div class="name" style="text-align: left;">{settlement_name}</div>
+                    <div class="description" style="text-align: left;">{settlement_size}, Population of {population}, containing {unique_characters} NPCs</div>
+                    <div class="gradient"></div>
                     <p><strong>Description:</strong> {town_description}</p>
+                    <p><strong>History: </strong>{town_history}</p>
                 </div>
             </div>
         </div>
         """
 
         character_tiles = ""
-        character_data = ""
+        character_data = []
         for name in character_names:
             character_info = assign_race_class_level(name, level_range)
             ability_scores = character_info['ability_scores']
-            character_data += f"[{character_info['name']}|{character_info['alignment']}|{character_info['class']}], "
+            character_data.append(f"[{character_info['name']}|{character_info['alignment']}|{character_info['class']}]")
+            class_spell_modifier_mapping = {
+                "Wizard": "Intelligence",
+                "Rogue": "Intelligence",
+                "Fighter": "Intelligence",
+                "Artificer": "Intelligence",
+                "Cleric": "Wisdom",
+                "Monk": "Wisdom",
+                "Druid": "Wisdom",
+                "Ranger": "Wisdom",
+                "Warlock": "Charisma",
+                "Bard": "Charisma",
+                "Barbarian": "Charisma",
+                "Paladin": "Charisma",
+                "Sorcerer": "Charisma"
+            }
+            attack_modifier_value = math.ceil((character_info['level']) / 4) + 1 + max(
+                calculate_modifier_value(ability_scores['Strength']),
+                calculate_modifier_value(ability_scores['Dexterity'])
+            )
+            attack_modifier = f"{'+' if attack_modifier_value >= 0 else ''}{attack_modifier_value}"
 
+            # Use the helper function to get the class spell modifier
+            spell_change = calculate_modifier_value(ability_scores[class_spell_modifier_mapping.get(character_info['class'], 'Intelligence')])
+
+            # Calculate Spell Attack Modifier and Spell Save Modifier
+            spell_attack_modifier_value = math.ceil((character_info['level']) / 4) + 1 + spell_change
+            spell_attack_modifier = f"{'+' if spell_attack_modifier_value >= 0 else ''}{spell_attack_modifier_value}"
+
+            spell_save_modifier_value = spell_attack_modifier_value + 8
+            #spell_save_modifier = f"{'+' if spell_save_modifier_value >= 0 else ''}{spell_save_modifier_value}"
             tile = f"""
             <div class="character-tile">
-                <div contenteditable="true"  style="width:85%; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
+                <div contenteditable="true"  style="width:85%; height:auto; font-family:Arial,Helvetica,sans-serif;font-size:11px;">
                 <div class="name">{character_info['name']}</div>
                 <div class="description">{character_info['race']} {character_info['class']}, {character_info['alignment']}</div>
 
@@ -472,7 +581,7 @@ def main():
                     
                 <div><span class="bold">Traits</span><span> {', '.join(character_info['traits'])}</span></div>
                 <div><span class="bold">Passive Perception</span><span> {character_info['passive_perception']}</span></div>
-                <div><span class="bold">Languages</span><span> Common, TODO</span></div>
+                <div><span class="bold">Languages</span><span> {character_info['languages']}</span></div>
                 <div><span class="bold">Level </span><span> {character_info['level']}</span></div> 
                     
                 <div class="gradient"></div>
@@ -481,12 +590,15 @@ def main():
                     
                 <div class="hr"></div>
                 
-                <div><span class="bold">Magic Items: </span><span> {', '.join([item['name'] for item in character_info['magic_items']])}</span></div>
-                <div class="attack"><span class="attackname">Greatclub.</span><span class="description"> Melee Weapon Attack:</span><span>+6 to hit, reach 5 ft., one target.</span><span class="description">Hit:</span><span>13 (2d8+4) bludgeoning damage.</span></div>    
-                <div class="attack"><span class="attackname">Javelin.</span><span class="description"> Melee or Ranged Weapon Attack:</span><span>+6 to hit, reach 5 ft. or 30ft./120, one target.</span><span class="description">Hit:</span><span>11 (2d6+4) piercing damage.</span></div>    
+                <div><span class="bold">Magic Items: </span><span> {character_info['magic_items']}</span></div>
+                <div><span class="bold">Attack Modifier:</span> {attack_modifier} &emsp; <span class="bold">Spell Attack Modifier:</span> {spell_attack_modifier} &emsp; <span class="bold">Spell Save:</span> {spell_save_modifier_value}</div>
                 </div>
             </div>
             """
+
+            #<div class="attack"><span class="attackname">Greatclub.</span><span class="description"> Melee Weapon Attack:</span><span>+6 to hit, reach 5 ft., one target.</span><span class="description">Hit:</span><span>13 (2d8+4) bludgeoning damage.</span></div>    
+            #<div class="attack"><span class="attackname">Javelin.</span><span class="description"> Melee or Ranged Weapon Attack:</span><span>+6 to hit, reach 5 ft. or 30ft./120, one target.</span><span class="description">Hit:</span><span>11 (2d6+4) piercing damage.</span></div>    
+                
 
             character_tiles += tile
 
@@ -628,13 +740,13 @@ def main():
         </div>
         """
 
-        components.html(character_tiles_html, height=750, scrolling=True)
+        components.html(character_tiles_html, height=920, scrolling=True)
 
         # Display the option to generate quests after a settlement has been generated
         st.subheader("Quests")
         if st.button("Generate new quest"):
             quest = replace_bold_italic(generate_quest(settlement_name_copy, st.session_state.character_data))
-            quest_title = quest.split("Quest Title:")[1].split("Quest Giver:")[0].strip()
+            quest_title = (quest.split("Quest Title:")[1].split("Quest Giver:")[0].strip()).strip(' :#-')
             st.session_state.quests.append({
                 "quest_text": quest,
                 "quest_parts": extract_quest_details(quest),
@@ -677,9 +789,11 @@ def main():
                     <div class="gradient" style="background: linear-gradient(10deg, #A73335, #f0f0f0); height:5px; margin:7px 0px;"></div>
                     <p>{quest_parts[5].strip(' :#-')}</p>
                     </div>
+                    
                 </div>
                 """
                 components.html(quest_tile, height=1100, scrolling=True)
 
 if __name__ == "__main__":
+
     main()
