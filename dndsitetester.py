@@ -125,7 +125,9 @@ def assign_race_class_level(character_name, level_range):
     character_class = random.choice(get_class())
     level = random.randint(*level_range)
     magic_items = get_magic_items_based_on_level(level)
-    magic_items_list = ', '.join([item['name'] for item in magic_items]) if magic_items else "None"
+    magic_items_list = ', '.join(
+        [f"<a href='https://dnd5e.wikidot.com/wondrous-items:{item['name'].replace(' ', '-').lower()}' style='color:#A73335;'>{item['name']}</a>" 
+        for item in magic_items]) if magic_items else "None"
 
     # Fetch race details
     race_details = get_race_details(race['index'])
